@@ -248,16 +248,17 @@ function showSetup(){
 function cancelSetup(){document.getElementById('setupOverlay').classList.add('hidden')}
 
 async function saveKey(){
-  const k=document.getElementById('apiKeyInput').value.trim()
+  const k=document.getElementById('apiKeyInput').value.replace(/[\s\u200B\uFEFF\u00A0]/g,'').trim()
   const err=document.getElementById('setupErr'),ok=document.getElementById('setupOk')
   err.classList.remove('show');ok.classList.remove('show')
-  if(!k.startsWith('sk-ant-')){err.textContent='API 키 형식이 올바르지 않습니다. (sk-ant- 로 시작)';err.classList.add('show');return}
+  if(!k.startsWith('sk-')){err.textContent='API 키 형식이 올바르지 않습니다. (sk-ant- 로 시작)';err.classList.add('show');return}
   if(!window.PublicKeyCredential){err.textContent='이 브라우저는 생체 인증을 지원하지 않습니다.';err.classList.add('show');return}
   try{
     await registerBiometric()
     localStorage.setItem(SK,await encryptKey(k))
+    ok.textContent='저장 완료! 키: ' + k.substring(0,10) + '...'
     ok.classList.add('show')
-    setTimeout(()=>{document.getElementById('setupOverlay').classList.add('hidden');lockApp()},1500)
+    setTimeout(()=>{document.getElementById('setupOverlay').classList.add('hidden');lockApp()},2000)
   }catch(e){
     err.textContent=e.name==='NotAllowedError'?'생체 인증이 취소되었습니다.':e.name==='NotSupportedError'?'이 기기는 생체 인증을 지원하지 않습니다.':`오류: ${e.message}`
     err.classList.add('show')
@@ -300,7 +301,7 @@ async function sendMsg(){
   document.getElementById('sendBtn').disabled=true
   addMsg('user',text);history.push({role:'user',content:text});showTyping()
   try{
-    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,level,topic,api_key:unlockedKey})})
+    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,level,topic,api_key:unlockedKey.replace(/[\s\u200B\uFEFF\u00A0]/g,'').trim()})})
     const data=await res.json();removeTyping()
     if(data.error){addMsg('bot',`오류: ${data.error}`,'')}
     else{history.push({role:'assistant',content:JSON.stringify(data)});addMsg('bot',data.reply||'',data.feedback||'')}

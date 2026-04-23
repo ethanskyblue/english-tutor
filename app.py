@@ -56,7 +56,9 @@ def chat():
     messages  = data.get('messages', [])
     level     = data.get('level', 'intermediate')
     topic     = data.get('topic', 'free')
-    api_key   = data.get('api_key', '').strip()  # 클라이언트에서 받음
+    api_key   = data.get('api_key', '')
+    # 보이지 않는 문자 모두 제거 (복사/붙여넣기 오염 방지)
+    api_key   = ''.join(api_key.split()).strip()
 
     if not api_key or not api_key.startswith('sk-ant-'):
         return jsonify({'error': 'API 키가 올바르지 않습니다.'}), 401
