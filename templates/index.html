@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="English Tutor" />
+  <title>English Tutor</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --teal:#1D9E75;--teal-dk:#0F6E56;--teal-lt:#E1F5EE;
+      --amber-lt:#FAEEDA;--amber-bd:#FAC775;--amber-tx:#633806;
+      --red-lt:#FCEBEB;--red-bd:#F09595;--red-tx:#A32D2D;
+      --gray-bg:#F8F8F6;--gray-bd:#D3D1C7;--gray-tx:#5F5E5A;
+      --gray-ht:#888780;--white:#FFFFFF;--dark:#2C2C2A;
+      --safe-b:env(safe-area-inset-bottom,0px);
+    }
+    html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--gray-bg);color:var(--dark);overflow:hidden}
+    .app{display:flex;flex-direction:column;height:100dvh}
+
+    /* 오버레이 */
+    .overlay{position:absolute;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+    .overlay.hidden{display:none}
+    .modal{background:var(--white);border-radius:20px;padding:28px 24px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:16px}
+    .modal-icon{font-size:40px;text-align:center}
+    .modal-title{font-size:18px;font-weight:600;color:var(--dark);text-align:center}
+    .modal-desc{font-size:13px;color:var(--gray-tx);text-align:center;line-height:1.6}
+    .field-label{font-size:12px;color:var(--gray-ht);margin-bottom:4px}
+    .field-input{width:100%;padding:10px 14px;font-size:14px;font-family:monospace;border:1px solid var(--gray-bd);border-radius:10px;background:var(--gray-bg);color:var(--dark);outline:none}
+    .field-input:focus{border-color:var(--teal);background:var(--white)}
+    .btn-primary{width:100%;padding:13px;background:var(--teal);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer}
+    .btn-primary:active{background:var(--teal-dk)}
+    .btn-secondary{width:100%;padding:11px;background:var(--white);color:var(--gray-tx);border:1px solid var(--gray-bd);border-radius:12px;font-size:14px;cursor:pointer}
+    .bio-btn{width:80px;height:80px;border-radius:50%;background:var(--teal-lt);border:2px solid var(--teal);font-size:36px;cursor:pointer;margin:8px auto;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+    .bio-btn:active{background:var(--teal)}
+    .err{background:var(--red-lt);border:1px solid var(--red-bd);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--red-tx);text-align:center;display:none}
+    .err.show{display:block}
+    .ok{background:var(--teal-lt);border:1px solid var(--teal);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--teal-dk);text-align:center;display:none}
+    .ok.show{display:block}
+
+    /* 헤더 */
+    .header{background:var(--white);border-bottom:1px solid var(--gray-bd);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .header-icon{font-size:22px}
+    .header-text h1{font-size:15px;font-weight:600}
+    .header-text p{font-size:11px;color:var(--gray-ht)}
+    .header-actions{margin-left:auto;display:flex;gap:6px}
+    .icon-btn{padding:5px 10px;font-size:14px;border:1px solid var(--gray-bd);border-radius:20px;background:var(--white);cursor:pointer;color:var(--gray-tx)}
+
+    /* 설정 바 */
+    .settings{background:var(--white);border-bottom:1px solid var(--gray-bd);padding:8px 12px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .settings::-webkit-scrollbar{display:none}
+    .settings-row{display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:max-content}
+    .set-label{font-size:11px;color:var(--gray-ht);margin-right:2px}
+    .set-div{width:1px;height:18px;background:var(--gray-bd);margin:0 4px}
+    .chip{padding:4px 10px;font-size:12px;border:1px solid var(--gray-bd);border-radius:20px;background:var(--white);color:var(--gray-tx);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+    .chip.teal{background:var(--teal-lt);border-color:var(--teal);color:var(--teal-dk);font-weight:500}
+    .chip.blue{background:#E6F1FB;border-color:#378ADD;color:#0C447C;font-weight:500}
+
+    /* 채팅 */
+    .chat{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:flex;flex-direction:column;gap:10px}
+    .msg{display:flex;flex-direction:column;max-width:82%}
+    .msg.user{align-self:flex-end;align-items:flex-end}
+    .msg.bot{align-self:flex-start;align-items:flex-start}
+    .sender{font-size:11px;color:var(--gray-ht);margin-bottom:3px;padding:0 2px}
+    .bubble{padding:10px 13px;border-radius:18px;font-size:14px;line-height:1.6;word-break:break-word}
+    .msg.user .bubble{background:var(--teal);color:white;border-radius:18px 18px 4px 18px}
+    .msg.bot .bubble{background:var(--white);border:1px solid var(--gray-bd);border-radius:18px 18px 18px 4px}
+    .feedback{margin-top:5px;background:var(--amber-lt);border:1px solid var(--amber-bd);border-radius:10px;padding:8px 11px;font-size:12px;line-height:1.55;color:var(--amber-tx);max-width:100%}
+    .fb-label{font-weight:600;margin-bottom:2px;font-size:11px}
+    .typing{display:flex;gap:5px;padding:10px 13px;background:var(--white);border:1px solid var(--gray-bd);border-radius:18px 18px 18px 4px;align-items:center;width:fit-content}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--gray-ht);animation:bounce 1s infinite}
+    .dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
+    @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+
+    /* 입력 */
+    .input-area{background:var(--white);border-top:1px solid var(--gray-bd);padding:10px 12px;padding-bottom:calc(10px + var(--safe-b));display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+    textarea{flex:1;padding:9px 13px;font-size:15px;font-family:inherit;border:1px solid var(--gray-bd);border-radius:22px;background:var(--gray-bg);color:var(--dark);resize:none;outline:none;line-height:1.45;min-height:40px;max-height:110px;overflow-y:auto;-webkit-appearance:none}
+    textarea:focus{border-color:var(--teal);background:var(--white)}
+    .send-btn{width:40px;height:40px;border-radius:50%;background:var(--teal);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+    .send-btn:active{background:var(--teal-dk)}
+    .send-btn:disabled{background:var(--gray-bd)}
+    .send-btn svg{width:18px;height:18px;fill:white}
+    .chat::-webkit-scrollbar{width:4px}
+    .chat::-webkit-scrollbar-thumb{background:var(--gray-bd);border-radius:4px}
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 잠금 오버레이 -->
+  <div class="overlay" id="lockOverlay">
+    <div class="modal">
+      <div class="modal-icon">🔐</div>
+      <div class="modal-title">English Tutor</div>
+      <div class="modal-desc" id="lockDesc">지문 인식으로 잠금을 해제하세요</div>
+      <button class="bio-btn" id="bioBtn" onclick="doBiometric()">👆</button>
+      <div class="err" id="lockErr"></div>
+      <button class="btn-secondary" onclick="showSetup()">⚙️ API 키 재설정</button>
+    </div>
+  </div>
+
+  <!-- API 키 설정 오버레이 -->
+  <div class="overlay hidden" id="setupOverlay">
+    <div class="modal">
+      <div class="modal-icon">🔑</div>
+      <div class="modal-title">API 키 설정</div>
+      <div class="modal-desc">Anthropic API 키를 입력하세요.<br>키는 이 기기에만 저장되며<br>서버로 전송되지 않습니다.</div>
+      <div>
+        <div class="field-label">API 키</div>
+        <input class="field-input" type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" />
+      </div>
+      <div class="err" id="setupErr"></div>
+      <div class="ok" id="setupOk">저장 완료! 지문 인식으로 잠금을 해제하세요.</div>
+      <button class="btn-primary" onclick="saveKey()">저장하고 지문 등록</button>
+      <button class="btn-secondary" id="cancelBtn" onclick="cancelSetup()">취소</button>
+    </div>
+  </div>
+
+  <!-- 앱 본체 -->
+  <div class="header">
+    <div class="header-icon">🎓</div>
+    <div class="header-text">
+      <h1>English Tutor</h1>
+      <p>AI 영어 회화 튜터 · Powered by Claude</p>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="clearChat()">초기화</button>
+      <button class="icon-btn" onclick="lockApp()">🔒</button>
+      <button class="icon-btn" onclick="showSetup()">⚙️</button>
+    </div>
+  </div>
+
+  <div class="settings">
+    <div class="settings-row">
+      <span class="set-label">난이도</span>
+      <button class="chip teal" data-group="level" data-val="beginner"     onclick="setChip(this)">🌱 초급</button>
+      <button class="chip"      data-group="level" data-val="intermediate" onclick="setChip(this)">🌿 중급</button>
+      <button class="chip"      data-group="level" data-val="advanced"     onclick="setChip(this)">🌳 고급</button>
+      <div class="set-div"></div>
+      <span class="set-label">주제</span>
+      <button class="chip blue" data-group="topic" data-val="free"     onclick="setChip(this)">💬 자유</button>
+      <button class="chip"      data-group="topic" data-val="travel"   onclick="setChip(this)">✈️ 여행</button>
+      <button class="chip"      data-group="topic" data-val="food"     onclick="setChip(this)">🍜 음식</button>
+      <button class="chip"      data-group="topic" data-val="work"     onclick="setChip(this)">💼 직장</button>
+      <button class="chip"      data-group="topic" data-val="hobby"    onclick="setChip(this)">🎨 취미</button>
+      <button class="chip"      data-group="topic" data-val="shopping" onclick="setChip(this)">🛍️ 쇼핑</button>
+    </div>
+  </div>
+
+  <div class="chat" id="chat"></div>
+
+  <div class="input-area">
+    <textarea id="inputBox" rows="1" placeholder="영어로 자유롭게 입력하세요..."></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMsg()">
+      <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+let history=[], level='beginner', topic='free', loading=false, unlockedKey=''
+const SK='et_api_key_enc'
+
+async function getSecret(){
+  let s=localStorage.getItem('et_secret')
+  if(!s){const a=crypto.getRandomValues(new Uint8Array(32));s=Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('');localStorage.setItem('et_secret',s)}
+  return s
+}
+async function deriveKey(s){
+  const e=new TextEncoder(),r=await crypto.subtle.importKey('raw',e.encode(s),'PBKDF2',false,['deriveKey'])
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:e.encode('et-salt-v1'),iterations:100000,hash:'SHA-256'},r,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])
+}
+async function encryptKey(k){
+  const s=await getSecret(),ck=await deriveKey(s),e=new TextEncoder(),iv=crypto.getRandomValues(new Uint8Array(12))
+  const c=await crypto.subtle.encrypt({name:'AES-GCM',iv},ck,e.encode(k))
+  return btoa(String.fromCharCode(...new Uint8Array([...iv,...new Uint8Array(c)])))
+}
+async function decryptKey(d){
+  const s=await getSecret(),ck=await deriveKey(s),b=Uint8Array.from(atob(d),c=>c.charCodeAt(0))
+  const p=await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},ck,b.slice(12))
+  return new TextDecoder().decode(p)
+}
+
+function hasCredential(){return!!localStorage.getItem('et_cred_id')}
+
+async function registerBiometric(){
+  const ch=crypto.getRandomValues(new Uint8Array(32))
+  const host=location.hostname==='localhost'?'localhost':location.hostname
+  const c=await navigator.credentials.create({publicKey:{
+    challenge:ch,
+    rp:{name:'English Tutor',id:host},
+    user:{id:new Uint8Array(16),name:'user',displayName:'사용자'},
+    pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+    authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},
+    timeout:60000
+  }})
+  localStorage.setItem('et_cred_id',btoa(String.fromCharCode(...new Uint8Array(c.rawId))))
+}
+
+async function verifyBiometric(){
+  const id=localStorage.getItem('et_cred_id')
+  if(!id)throw new Error('no cred')
+  const cid=Uint8Array.from(atob(id),c=>c.charCodeAt(0))
+  const host=location.hostname==='localhost'?'localhost':location.hostname
+  await navigator.credentials.get({publicKey:{
+    challenge:crypto.getRandomValues(new Uint8Array(32)),
+    rpId:host,
+    allowCredentials:[{type:'public-key',id:cid}],
+    userVerification:'required',timeout:60000
+  }})
+}
+
+function lockApp(){
+  unlockedKey=''
+  document.getElementById('lockOverlay').classList.remove('hidden')
+  document.getElementById('lockDesc').textContent=hasCredential()?'지문 인식으로 잠금을 해제하세요':'API 키를 먼저 설정해주세요'
+  document.getElementById('lockErr').classList.remove('show')
+}
+
+async function doBiometric(){
+  const stored=localStorage.getItem(SK)
+  if(!stored){showSetup();return}
+  const btn=document.getElementById('bioBtn'),err=document.getElementById('lockErr')
+  btn.textContent='⏳';err.classList.remove('show')
+  try{
+    await verifyBiometric()
+    unlockedKey=await decryptKey(stored)
+    document.getElementById('lockOverlay').classList.add('hidden')
+    btn.textContent='👆'
+    if(!document.getElementById('chat').children.length)
+      addMsg('bot',"Hello! I'm your English conversation tutor. 😊 What would you like to talk about today? Feel free to write in English — I'll gently correct any mistakes!",'')
+  }catch(e){
+    btn.textContent='👆'
+    err.textContent='인증 실패 또는 취소되었습니다. 다시 시도해주세요.'
+    err.classList.add('show')
+  }
+}
+
+function showSetup(){
+  document.getElementById('setupOverlay').classList.remove('hidden')
+  document.getElementById('setupErr').classList.remove('show')
+  document.getElementById('setupOk').classList.remove('show')
+  document.getElementById('apiKeyInput').value=''
+  document.getElementById('cancelBtn').style.display=localStorage.getItem(SK)?'block':'none'
+}
+function cancelSetup(){document.getElementById('setupOverlay').classList.add('hidden')}
+
+async function saveKey(){
+  const k=document.getElementById('apiKeyInput').value.trim()
+  const err=document.getElementById('setupErr'),ok=document.getElementById('setupOk')
+  err.classList.remove('show');ok.classList.remove('show')
+  if(!k.startsWith('sk-ant-')){err.textContent='API 키 형식이 올바르지 않습니다. (sk-ant- 로 시작)';err.classList.add('show');return}
+  if(!window.PublicKeyCredential){err.textContent='이 브라우저는 생체 인증을 지원하지 않습니다.';err.classList.add('show');return}
+  try{
+    await registerBiometric()
+    localStorage.setItem(SK,await encryptKey(k))
+    ok.classList.add('show')
+    setTimeout(()=>{document.getElementById('setupOverlay').classList.add('hidden');lockApp()},1500)
+  }catch(e){
+    err.textContent=e.name==='NotAllowedError'?'생체 인증이 취소되었습니다.':e.name==='NotSupportedError'?'이 기기는 생체 인증을 지원하지 않습니다.':`오류: ${e.message}`
+    err.classList.add('show')
+  }
+}
+
+function setChip(el){
+  const g=el.dataset.group,c=g==='level'?'teal':'blue'
+  document.querySelectorAll(`[data-group="${g}"]`).forEach(b=>b.classList.remove(c))
+  el.classList.add(c)
+  if(g==='level')level=el.dataset.val;else topic=el.dataset.val
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function addMsg(role,text,feedback){
+  const chat=document.getElementById('chat'),div=document.createElement('div')
+  div.className=`msg ${role}`
+  const snd=document.createElement('div');snd.className='sender';snd.textContent=role==='user'?'나':'Tutor'
+  const bub=document.createElement('div');bub.className='bubble';bub.textContent=text
+  div.appendChild(snd);div.appendChild(bub)
+  if(feedback){const fb=document.createElement('div');fb.className='feedback';fb.innerHTML=`<div class="fb-label">💡 피드백</div>${esc(feedback)}`;div.appendChild(fb)}
+  chat.appendChild(div);chat.scrollTop=chat.scrollHeight
+}
+
+function showTyping(){
+  const chat=document.getElementById('chat'),div=document.createElement('div')
+  div.className='msg bot';div.id='typing'
+  div.innerHTML='<div class="sender">Tutor</div><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'
+  chat.appendChild(div);chat.scrollTop=chat.scrollHeight
+}
+function removeTyping(){const e=document.getElementById('typing');if(e)e.remove()}
+
+async function sendMsg(){
+  if(loading)return
+  if(!unlockedKey){lockApp();return}
+  const box=document.getElementById('inputBox'),text=box.value.trim()
+  if(!text)return
+  box.value='';box.style.height='auto';loading=true
+  document.getElementById('sendBtn').disabled=true
+  addMsg('user',text);history.push({role:'user',content:text});showTyping()
+  try{
+    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,level,topic,api_key:unlockedKey})})
+    const data=await res.json();removeTyping()
+    if(data.error){addMsg('bot',`오류: ${data.error}`,'')}
+    else{history.push({role:'assistant',content:JSON.stringify(data)});addMsg('bot',data.reply||'',data.feedback||'')}
+  }catch(e){removeTyping();addMsg('bot','네트워크 오류가 발생했습니다.','')}
+  loading=false;document.getElementById('sendBtn').disabled=false;box.focus()
+}
+
+function clearChat(){history=[];document.getElementById('chat').innerHTML='';addMsg('bot',"Hello! Let's start fresh. 😊 What would you like to talk about today?",'')}
+
+document.getElementById('inputBox').addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'})
+document.getElementById('inputBox').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!/Android|iPhone/i.test(navigator.userAgent)){e.preventDefault();sendMsg()}})
+
+window.addEventListener('load',()=>{
+  if(localStorage.getItem(SK))lockApp();else showSetup()
+})
+</script>
+</body>
+</html>
