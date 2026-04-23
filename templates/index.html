@@ -248,10 +248,10 @@ function showSetup(){
 function cancelSetup(){document.getElementById('setupOverlay').classList.add('hidden')}
 
 async function saveKey(){
-  const raw=document.getElementById('apiKeyInput').value; const k=raw.replace(/[^a-zA-Z0-9\-_]/g,'').trim()
+  const raw=document.getElementById('apiKeyInput').value; const k=raw.replace(/[\s\u200B\uFEFF\u00A0\u200C\u200D\r\n\t]+/g,'').trim()
   const err=document.getElementById('setupErr'),ok=document.getElementById('setupOk')
   err.classList.remove('show');ok.classList.remove('show')
-  if(!k.startsWith('sk-')){err.textContent='API 키 형식이 올바르지 않습니다. (sk-ant- 로 시작)';err.classList.add('show');return}
+  if(!k || k.length < 20){err.textContent='API 키가 너무 짧습니다. 키 전체를 복사했는지 확인해주세요. (현재 ' + k.length + '자)';err.classList.add('show');return}
   if(!window.PublicKeyCredential){err.textContent='이 브라우저는 생체 인증을 지원하지 않습니다.';err.classList.add('show');return}
   try{
     await registerBiometric()
@@ -301,7 +301,7 @@ async function sendMsg(){
   document.getElementById('sendBtn').disabled=true
   addMsg('user',text);history.push({role:'user',content:text});showTyping()
   try{
-    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,level,topic,api_key:unlockedKey.replace(/[^a-zA-Z0-9\-_]/g,'').trim()})})
+    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,level,topic,api_key:unlockedKey.replace(/[\s\u200B\uFEFF\u00A0\u200C\u200D\r\n\t]+/g,'').trim()})})
     const data=await res.json();removeTyping()
     if(data.error){addMsg('bot',`오류: ${data.error}`,'')}
     else{history.push({role:'assistant',content:JSON.stringify(data)});addMsg('bot',data.reply||'',data.feedback||'')}

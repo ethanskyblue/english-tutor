@@ -68,9 +68,9 @@ def chat():
     if not api_key:
         return jsonify({'error': 'API 키가 전달되지 않았습니다. ⚙️ 버튼을 눌러 키를 다시 설정해주세요.'}), 401
 
-    # sk- 로 시작하는지만 확인 (sk-ant- 외 다른 형식도 허용)
-    if not api_key.startswith('sk-'):
-        return jsonify({'error': f'API 키 형식 오류. 받은 값 앞 6자리: [{api_key[:6]}]'}), 401
+    # 키 길이만 확인 (형식 검사 완화)
+    if len(api_key) < 20:
+        return jsonify({'error': f'API 키가 너무 짧습니다. 받은 길이: {len(api_key)}자, 앞 10자리: [{api_key[:10]}]'}), 401
 
     payload = json.dumps({
         'model': 'claude-sonnet-4-6',
