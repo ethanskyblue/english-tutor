@@ -109,9 +109,10 @@
       <div class="modal-desc">Anthropic API 키를 입력하세요.<br>키는 이 기기에만 저장되며<br>서버로 전송되지 않습니다.</div>
       <div>
         <div class="field-label">API 키</div>
-        <input class="field-input" type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" />
+        <input class="field-input" type="text" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" inputmode="url" spellcheck="false" />
       </div>
       <div class="err" id="setupErr"></div>
+      <div id="keyPreview" style="font-size:11px;color:#888780;text-align:center;min-height:16px"></div>
       <div class="ok" id="setupOk">저장 완료! 지문 인식으로 잠금을 해제하세요.</div>
       <button class="btn-primary" onclick="saveKey()">저장하고 지문 등록</button>
       <button class="btn-secondary" id="cancelBtn" onclick="cancelSetup()">취소</button>
@@ -248,7 +249,7 @@ function showSetup(){
 function cancelSetup(){document.getElementById('setupOverlay').classList.add('hidden')}
 
 async function saveKey(){
-  const raw=document.getElementById('apiKeyInput').value; const k=raw.replace(/[\s\u200B\uFEFF\u00A0\u200C\u200D\r\n\t]+/g,'').trim()
+  const raw=document.getElementById('apiKeyInput').value; const k=raw.split('').filter(c=>c.charCodeAt(0)>=0x20&&c.charCodeAt(0)<=0x7E).join('').trim()
   const err=document.getElementById('setupErr'),ok=document.getElementById('setupOk')
   err.classList.remove('show');ok.classList.remove('show')
   if(!k || k.length < 20){err.textContent='API 키가 너무 짧습니다. 키 전체를 복사했는지 확인해주세요. (현재 ' + k.length + '자)';err.classList.add('show');return}
@@ -301,7 +302,7 @@ async function sendMsg(){
   document.getElementById('sendBtn').disabled=true
   addMsg('user',text);history.push({role:'user',content:text});showTyping()
   try{
-    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,level,topic,api_key:unlockedKey.replace(/[\s\u200B\uFEFF\u00A0\u200C\u200D\r\n\t]+/g,'').trim()})})
+    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,level,topic,api_key:unlockedKey.split('').filter(c=>c.charCodeAt(0)>=0x20&&c.charCodeAt(0)<=0x7E).join('').trim()})})
     const data=await res.json();removeTyping()
     if(data.error){addMsg('bot',`오류: ${data.error}`,'')}
     else{history.push({role:'assistant',content:JSON.stringify(data)});addMsg('bot',data.reply||'',data.feedback||'')}
@@ -311,6 +312,16 @@ async function sendMsg(){
 
 function clearChat(){history=[];document.getElementById('chat').innerHTML='';addMsg('bot',"Hello! Let's start fresh. 😊 What would you like to talk about today?",'')}
 
+// API 키 입력창 붙여넣기 즉시 정리
+document.getElementById('apiKeyInput').addEventListener('paste',function(e){
+  e.preventDefault()
+  const pasted = (e.clipboardData||window.clipboardData).getData('text')
+  const clean = pasted.split('').filter(c=>c.charCodeAt(0)>=0x21&&c.charCodeAt(0)<=0x7E).join('')
+  this.value = clean
+  // 정리 결과 즉시 표시
+  const preview = document.getElementById('keyPreview')
+  if(preview) preview.textContent = '입력된 키 앞 15자: ' + clean.substring(0,15) + ' (' + clean.length + '자)'
+})
 document.getElementById('inputBox').addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'})
 document.getElementById('inputBox').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!/Android|iPhone/i.test(navigator.userAgent)){e.preventDefault();sendMsg()}})
 

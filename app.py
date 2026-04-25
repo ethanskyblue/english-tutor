@@ -44,9 +44,9 @@ Level guidelines:
 - Advanced: complex expressions, nuanced feedback"""
 
 def clean_key(raw):
-    """API 키에서 불필요한 문자 완전 제거"""
-    # 공백, 줄바꿈, 탭, 보이지 않는 유니코드 문자 모두 제거
-    cleaned = re.sub(r'[\s\u200B\uFEFF\u00A0\u200C\u200D\u2060]+', '', raw)
+    """API 키에서 불필요한 문자 완전 제거 - ASCII 출력 가능 문자만 허용"""
+    # 0x20~0x7E 범위(출력 가능한 ASCII)만 남기고 나머지 모두 제거
+    cleaned = ''.join(c for c in raw if 0x20 <= ord(c) <= 0x7E)
     return cleaned.strip()
 
 @app.route('/')
