@@ -249,10 +249,11 @@ function showSetup(){
 function cancelSetup(){document.getElementById('setupOverlay').classList.add('hidden')}
 
 async function saveKey(){
-  const raw=document.getElementById('apiKeyInput').value; const k=raw.split('').filter(c=>c.charCodeAt(0)>=0x20&&c.charCodeAt(0)<=0x7E).join('').trim()
+  const raw=document.getElementById('apiKeyInput').value
+  const k=cleanAndPreview(raw)
   const err=document.getElementById('setupErr'),ok=document.getElementById('setupOk')
   err.classList.remove('show');ok.classList.remove('show')
-  if(!k || k.length < 20){err.textContent='API 키가 너무 짧습니다. 키 전체를 복사했는지 확인해주세요. (현재 ' + k.length + '자)';err.classList.add('show');return}
+  if(!k || k.length < 10){err.textContent='API 키가 너무 짧습니다. (현재 ' + k.length + '자) 키 전체를 다시 입력해주세요.';err.classList.add('show');return}
   if(!window.PublicKeyCredential){err.textContent='이 브라우저는 생체 인증을 지원하지 않습니다.';err.classList.add('show');return}
   try{
     await registerBiometric()
@@ -312,15 +313,22 @@ async function sendMsg(){
 
 function clearChat(){history=[];document.getElementById('chat').innerHTML='';addMsg('bot',"Hello! Let's start fresh. 😊 What would you like to talk about today?",'')}
 
-// API 키 입력창 붙여넣기 즉시 정리
+// API 키 입력창 - paste/input 모두 처리 (안드로이드 호환)
+function cleanAndPreview(val){
+  const clean = val.split('').filter(c=>c.charCodeAt(0)>=0x21&&c.charCodeAt(0)<=0x7E).join('')
+  const preview = document.getElementById('keyPreview')
+  if(preview && clean.length > 0){
+    preview.textContent = '앞 15자: ' + clean.substring(0,15) + ' (' + clean.length + '자)'
+  }
+  return clean
+}
 document.getElementById('apiKeyInput').addEventListener('paste',function(e){
   e.preventDefault()
   const pasted = (e.clipboardData||window.clipboardData).getData('text')
-  const clean = pasted.split('').filter(c=>c.charCodeAt(0)>=0x21&&c.charCodeAt(0)<=0x7E).join('')
-  this.value = clean
-  // 정리 결과 즉시 표시
-  const preview = document.getElementById('keyPreview')
-  if(preview) preview.textContent = '입력된 키 앞 15자: ' + clean.substring(0,15) + ' (' + clean.length + '자)'
+  this.value = cleanAndPreview(pasted)
+})
+document.getElementById('apiKeyInput').addEventListener('input',function(){
+  cleanAndPreview(this.value)
 })
 document.getElementById('inputBox').addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'})
 document.getElementById('inputBox').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!/Android|iPhone/i.test(navigator.userAgent)){e.preventDefault();sendMsg()}})
