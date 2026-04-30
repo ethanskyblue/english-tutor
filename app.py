@@ -1,16 +1,19 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import json
 import urllib.request
 import urllib.error
 import os
-import socket
+import re
+import secrets
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
 def load_api_key():
     key = os.environ.get('ANTHROPIC_API_KEY', '')
-    if key and key != 'your_api_key_here':
+    if key:
         return key
+    # 로컬 .env 파일 (개발용)
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
     if os.path.exists(env_path):
         with open(env_path, 'r', encoding='utf-8') as f:
@@ -22,26 +25,25 @@ def load_api_key():
                         return v.strip()
     return ''
 
-LEVEL_MAP = {
-    'beginner': 'Beginner',
-    'intermediate': 'Intermediate',
-    'advanced': 'Advanced'
-}
-TOPIC_MAP = {
-    'free': 'Free conversation',
-    'travel': 'Travel',
-    'food': 'Food',
-    'work': 'Work / Business',
-    'hobby': 'Hobbies',
-    'shopping': 'Shopping'
-}
-
 def build_system(level, topic):
+    level_map = {
+        'beginner': 'Beginner',
+        'intermediate': 'Intermediate',
+        'advanced': 'Advanced'
+    }
+    topic_map = {
+        'free': 'Free conversation',
+        'travel': 'Travel',
+        'food': 'Food',
+        'work': 'Work / Business',
+        'hobby': 'Hobbies',
+        'shopping': 'Shopping'
+    }
     return f"""You are a friendly and encouraging English conversation tutor.
 
 Settings:
-- Level: {LEVEL_MAP.get(level, 'Intermediate')}
-- Topic: {TOPIC_MAP.get(topic, 'Free conversation')}
+- Level: {level_map.get(level, 'Intermediate')}
+- Topic: {topic_map.get(topic, 'Free conversation')}
 
 Your job:
 1. Respond naturally in English to keep the conversation flowing
@@ -63,27 +65,38 @@ Level guidelines:
 def index():
     return render_template('index.html')
 
-@app.route('/get_ip')
-def get_ip():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8', 80))
-        ip = s.getsockname()[0]
-        s.close()
-    except Exception:
-        ip = '127.0.0.1'
-    return jsonify({'ip': ip})
+@app.route('/verify-pin', methods=['POST'])
+def verify_pin():
+    """뒤 6자리 PIN 검증"""
+    data = request.get_json(force=True, silent=True) or {}
+    pin  = data.get('pin', '').strip()
+
+    api_key = load_api_key()
+    if not api_key:
+        return jsonify({'ok': False, 'error': 'API 키가 서버에 설정되지 않았습니다.'}), 500
+
+    # API 키 뒤 6자리와 비교
+    correct_pin = api_key[-6:]
+    if pin == correct_pin:
+        session['auth'] = True   # 서버 세션에 인증 기록
+        return jsonify({'ok': True})
+    else:
+        return jsonify({'ok': False, 'error': '핀 번호가 올바르지 않습니다.'}), 401
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    data = request.get_json()
-    messages = data.get('messages', [])
-    level = data.get('level', 'intermediate')
-    topic = data.get('topic', 'free')
+    # 세션 인증 확인
+    if not session.get('auth'):
+        return jsonify({'error': '인증이 필요합니다. 앱을 다시 시작해주세요.'}), 401
 
-    api_key = load_api_key()
-    if not api_key or api_key == 'your_api_key_here':
-        return jsonify({'error': 'API 키가 설정되지 않았습니다. Railway 환경변수를 확인하세요.'}), 500
+    data     = request.get_json(force=True, silent=True) or {}
+    messages = data.get('messages', [])
+    level    = data.get('level', 'intermediate')
+    topic    = data.get('topic', 'free')
+    api_key  = load_api_key()
+
+    if not api_key:
+        return jsonify({'error': 'API 키가 서버에 설정되지 않았습니다.'}), 500
 
     payload = json.dumps({
         'model': 'claude-sonnet-4-6',
@@ -126,9 +139,5 @@ def chat():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    print("=" * 50)
-    print("English Tutor 웹앱 시작!")
-    print(f"로컬 접속: http://localhost:{port}")
-    print("종료: Ctrl+C")
-    print("=" * 50)
+    print(f"서버 시작: http://localhost:{port}")
     app.run(host='0.0.0.0', port=port, debug=False)
