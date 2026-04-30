@@ -1,18 +1,13 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify
 import json
 import urllib.request
 import urllib.error
 import os
 import re
-import secrets
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
 def load_api_key():
-    key = os.environ.get('ANTHROPIC_API_KEY', '')
-    if key:
-        return key
     # 로컬 .env 파일 (개발용)
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
     if os.path.exists(env_path):
@@ -61,42 +56,28 @@ Level guidelines:
 - Intermediate: natural conversation, some idioms
 - Advanced: complex expressions, nuanced feedback"""
 
+def clean_key(raw):
+    """API 키에서 불필요한 문자 완전 제거 - ASCII 출력 가능 문자만 허용"""
+    cleaned = ''.join(c for c in raw if 0x20 <= ord(c) <= 0x7E)
+    return cleaned.strip()
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/verify-pin', methods=['POST'])
-def verify_pin():
-    """뒤 6자리 PIN 검증"""
-    data = request.get_json(force=True, silent=True) or {}
-    pin  = data.get('pin', '').strip()
-
-    api_key = load_api_key()
-    if not api_key:
-        return jsonify({'ok': False, 'error': 'API 키가 서버에 설정되지 않았습니다.'}), 500
-
-    # API 키 뒤 6자리와 비교
-    correct_pin = api_key[-6:]
-    if pin == correct_pin:
-        session['auth'] = True   # 서버 세션에 인증 기록
-        return jsonify({'ok': True})
-    else:
-        return jsonify({'ok': False, 'error': '핀 번호가 올바르지 않습니다.'}), 401
-
 @app.route('/chat', methods=['POST'])
 def chat():
-    # 세션 인증 확인
-    if not session.get('auth'):
-        return jsonify({'error': '인증이 필요합니다. 앱을 다시 시작해주세요.'}), 401
-
     data     = request.get_json(force=True, silent=True) or {}
     messages = data.get('messages', [])
     level    = data.get('level', 'intermediate')
     topic    = data.get('topic', 'free')
-    api_key  = load_api_key()
+    raw_key  = data.get('api_key', '')
+    api_key  = clean_key(raw_key)
 
-    if not api_key:
-        return jsonify({'error': 'API 키가 서버에 설정되지 않았습니다.'}), 500
+    print(f"[DEBUG] key_len={len(api_key)} key_prefix={api_key[:12] if api_key else 'EMPTY'}")
+
+    if not api_key or len(api_key) < 20:
+        return jsonify({'error': f'API 키가 올바르지 않습니다. (길이: {len(api_key)}자)'}), 401
 
     payload = json.dumps({
         'model': 'claude-sonnet-4-6',
@@ -128,6 +109,7 @@ def chat():
 
     except urllib.error.HTTPError as e:
         err_body = e.read().decode('utf-8')
+        print(f"[DEBUG] HTTPError {e.code}: {err_body[:200]}")
         try:
             err_msg = json.loads(err_body).get('error', {}).get('message', err_body)
         except Exception:
