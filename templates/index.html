@@ -5,316 +5,187 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="English Tutor" />
   <title>English Tutor</title>
+  <!-- jsPDF: PDF 생성 라이브러리 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --teal:#1D9E75;--teal-dk:#0F6E56;--teal-lt:#E1F5EE;
+      --amber-lt:#FAEEDA;--amber-bd:#FAC775;--amber-tx:#633806;
+      --red-lt:#FCEBEB;--red-bd:#F09595;--red-tx:#A32D2D;
+      --gray-bg:#F8F8F6;--gray-bd:#D3D1C7;--gray-tx:#5F5E5A;
+      --gray-ht:#888780;--white:#FFFFFF;--dark:#2C2C2A;
+      --safe-b:env(safe-area-inset-bottom,0px);
+    }
+    html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--gray-bg);color:var(--dark);overflow:hidden}
+    .app{display:flex;flex-direction:column;height:100dvh}
 
-    :root {
-      --teal:     #1D9E75;
-      --teal-dk:  #0F6E56;
-      --teal-lt:  #E1F5EE;
-      --amber-lt: #FAEEDA;
-      --amber-bd: #FAC775;
-      --amber-tx: #633806;
-      --gray-bg:  #F8F8F6;
-      --gray-bd:  #D3D1C7;
-      --gray-tx:  #5F5E5A;
-      --gray-ht:  #888780;
-      --white:    #FFFFFF;
-      --dark:     #2C2C2A;
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
-    }
+    /* 오버레이 */
+    .overlay{position:absolute;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+    .overlay.hidden{display:none}
+    .modal{background:var(--white);border-radius:20px;padding:28px 24px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:16px}
+    .modal-icon{font-size:40px;text-align:center}
+    .modal-title{font-size:18px;font-weight:600;color:var(--dark);text-align:center}
+    .modal-desc{font-size:13px;color:var(--gray-tx);text-align:center;line-height:1.6}
+    .field-label{font-size:12px;color:var(--gray-ht);margin-bottom:4px}
+    .field-input{width:100%;padding:10px 14px;font-size:14px;font-family:monospace;border:1px solid var(--gray-bd);border-radius:10px;background:var(--gray-bg);color:var(--dark);outline:none}
+    .field-input:focus{border-color:var(--teal);background:var(--white)}
+    .btn-primary{width:100%;padding:13px;background:var(--teal);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer}
+    .btn-primary:active{background:var(--teal-dk)}
+    .btn-secondary{width:100%;padding:11px;background:var(--white);color:var(--gray-tx);border:1px solid var(--gray-bd);border-radius:12px;font-size:14px;cursor:pointer}
+    .bio-btn{width:80px;height:80px;border-radius:50%;background:var(--teal-lt);border:2px solid var(--teal);font-size:36px;cursor:pointer;margin:8px auto;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+    .bio-btn:active{background:var(--teal)}
+    .err{background:var(--red-lt);border:1px solid var(--red-bd);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--red-tx);text-align:center;display:none}
+    .err.show{display:block}
+    .ok{background:var(--teal-lt);border:1px solid var(--teal);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--teal-dk);text-align:center;display:none}
+    .ok.show{display:block}
 
-    html, body {
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
-                   'Noto Sans KR', sans-serif;
-      background: var(--gray-bg);
-      color: var(--dark);
-      overflow: hidden;
-    }
+    /* 헤더 */
+    .header{background:var(--white);border-bottom:1px solid var(--gray-bd);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .header-icon{font-size:22px}
+    .header-text h1{font-size:15px;font-weight:600}
+    .header-text p{font-size:11px;color:var(--gray-ht)}
+    .header-actions{margin-left:auto;display:flex;gap:6px}
+    .icon-btn{padding:5px 10px;font-size:13px;border:1px solid var(--gray-bd);border-radius:20px;background:var(--white);cursor:pointer;color:var(--gray-tx);white-space:nowrap}
+    .icon-btn.pdf{background:var(--teal-lt);border-color:var(--teal);color:var(--teal-dk);font-weight:500}
+    .icon-btn.pdf:active{background:var(--teal);color:white}
 
-    /* ── 전체 레이아웃 ── */
-    .app {
-      display: flex;
-      flex-direction: column;
-      height: 100dvh;   /* dynamic viewport height (모바일 주소창 대응) */
-    }
+    /* 설정 바 */
+    .settings{background:var(--white);border-bottom:1px solid var(--gray-bd);padding:8px 12px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .settings::-webkit-scrollbar{display:none}
+    .settings-row{display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:max-content}
+    .set-label{font-size:11px;color:var(--gray-ht);margin-right:2px}
+    .set-div{width:1px;height:18px;background:var(--gray-bd);margin:0 4px}
+    .chip{padding:4px 10px;font-size:12px;border:1px solid var(--gray-bd);border-radius:20px;background:var(--white);color:var(--gray-tx);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+    .chip.teal{background:var(--teal-lt);border-color:var(--teal);color:var(--teal-dk);font-weight:500}
+    .chip.blue{background:#E6F1FB;border-color:#378ADD;color:#0C447C;font-weight:500}
 
-    /* ── 헤더 ── */
-    .header {
-      background: var(--white);
-      border-bottom: 1px solid var(--gray-bd);
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    .header-icon {
-      font-size: 22px;
-      line-height: 1;
-    }
-    .header-text h1 {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--dark);
-    }
-    .header-text p {
-      font-size: 11px;
-      color: var(--gray-ht);
-    }
-    .clear-btn {
-      margin-left: auto;
-      padding: 5px 12px;
-      font-size: 12px;
-      border: 1px solid var(--gray-bd);
-      border-radius: 20px;
-      background: var(--white);
-      color: var(--gray-tx);
-      cursor: pointer;
-    }
+    /* 채팅 */
+    .chat{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:flex;flex-direction:column;gap:10px}
+    .msg{display:flex;flex-direction:column;max-width:82%}
+    .msg.user{align-self:flex-end;align-items:flex-end}
+    .msg.bot{align-self:flex-start;align-items:flex-start}
+    .sender{font-size:11px;color:var(--gray-ht);margin-bottom:3px;padding:0 2px}
+    .bubble{padding:10px 13px;border-radius:18px;font-size:14px;line-height:1.6;word-break:break-word}
+    .msg.user .bubble{background:var(--teal);color:white;border-radius:18px 18px 4px 18px}
+    .msg.bot .bubble{background:var(--white);border:1px solid var(--gray-bd);border-radius:18px 18px 18px 4px}
+    .feedback{margin-top:5px;background:var(--amber-lt);border:1px solid var(--amber-bd);border-radius:10px;padding:8px 11px;font-size:12px;line-height:1.55;color:var(--amber-tx);max-width:100%}
+    .fb-label{font-weight:600;margin-bottom:2px;font-size:11px}
+    .typing{display:flex;gap:5px;padding:10px 13px;background:var(--white);border:1px solid var(--gray-bd);border-radius:18px 18px 18px 4px;align-items:center;width:fit-content}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--gray-ht);animation:bounce 1s infinite}
+    .dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
+    @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
 
-    /* ── 설정 바 ── */
-    .settings {
-      background: var(--white);
-      border-bottom: 1px solid var(--gray-bd);
-      padding: 8px 12px;
-      flex-shrink: 0;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .settings::-webkit-scrollbar { display: none; }
-    .settings-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-      min-width: max-content;
-    }
-    .set-label {
-      font-size: 11px;
-      color: var(--gray-ht);
-      margin-right: 2px;
-    }
-    .set-divider {
-      width: 1px;
-      height: 18px;
-      background: var(--gray-bd);
-      margin: 0 4px;
-    }
-    .chip {
-      padding: 4px 10px;
-      font-size: 12px;
-      border: 1px solid var(--gray-bd);
-      border-radius: 20px;
-      background: var(--white);
-      color: var(--gray-tx);
-      cursor: pointer;
-      transition: all 0.15s;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .chip.active-teal {
-      background: var(--teal-lt);
-      border-color: var(--teal);
-      color: var(--teal-dk);
-      font-weight: 500;
-    }
-    .chip.active-blue {
-      background: #E6F1FB;
-      border-color: #378ADD;
-      color: #0C447C;
-      font-weight: 500;
-    }
+    /* 입력 */
+    .input-area{background:var(--white);border-top:1px solid var(--gray-bd);padding:10px 12px;padding-bottom:calc(10px + var(--safe-b));display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+    textarea{flex:1;padding:9px 13px;font-size:15px;font-family:inherit;border:1px solid var(--gray-bd);border-radius:22px;background:var(--gray-bg);color:var(--dark);resize:none;outline:none;line-height:1.45;min-height:40px;max-height:110px;overflow-y:auto;-webkit-appearance:none}
+    textarea:focus{border-color:var(--teal);background:var(--white)}
+    .send-btn{width:40px;height:40px;border-radius:50%;background:var(--teal);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+    .send-btn:active{background:var(--teal-dk)}
+    .send-btn:disabled{background:var(--gray-bd)}
+    .send-btn svg{width:18px;height:18px;fill:white}
+    .chat::-webkit-scrollbar{width:4px}
+    .chat::-webkit-scrollbar-thumb{background:var(--gray-bd);border-radius:4px}
 
-    /* ── 채팅 영역 ── */
-    .chat {
-      flex: 1;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+    /* PDF 토스트 알림 */
+    .toast{
+      position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+      background:#2C2C2A;color:white;
+      padding:10px 20px;border-radius:20px;
+      font-size:13px;white-space:nowrap;
+      opacity:0;transition:opacity 0.3s;
+      z-index:200;pointer-events:none;
     }
-
-    .msg { display: flex; flex-direction: column; max-width: 82%; }
-    .msg.user { align-self: flex-end; align-items: flex-end; }
-    .msg.bot  { align-self: flex-start; align-items: flex-start; }
-
-    .sender {
-      font-size: 11px;
-      color: var(--gray-ht);
-      margin-bottom: 3px;
-      padding: 0 2px;
-    }
-
-    .bubble {
-      padding: 10px 13px;
-      border-radius: 18px;
-      font-size: 14px;
-      line-height: 1.6;
-      word-break: break-word;
-    }
-    .msg.user .bubble {
-      background: var(--teal);
-      color: white;
-      border-radius: 18px 18px 4px 18px;
-    }
-    .msg.bot .bubble {
-      background: var(--white);
-      border: 1px solid var(--gray-bd);
-      color: var(--dark);
-      border-radius: 18px 18px 18px 4px;
-    }
-
-    .feedback {
-      margin-top: 5px;
-      background: var(--amber-lt);
-      border: 1px solid var(--amber-bd);
-      border-radius: 10px;
-      padding: 8px 11px;
-      font-size: 12px;
-      line-height: 1.55;
-      color: var(--amber-tx);
-      max-width: 100%;
-    }
-    .feedback-label {
-      font-weight: 600;
-      margin-bottom: 2px;
-      font-size: 11px;
-    }
-
-    .typing {
-      display: flex;
-      gap: 5px;
-      padding: 10px 13px;
-      background: var(--white);
-      border: 1px solid var(--gray-bd);
-      border-radius: 18px 18px 18px 4px;
-      align-items: center;
-      width: fit-content;
-    }
-    .dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--gray-ht);
-      animation: bounce 1s infinite;
-    }
-    .dot:nth-child(2) { animation-delay: 0.15s; }
-    .dot:nth-child(3) { animation-delay: 0.30s; }
-    @keyframes bounce {
-      0%,80%,100% { transform: translateY(0); }
-      40%          { transform: translateY(-6px); }
-    }
-
-    /* ── 입력 영역 ── */
-    .input-area {
-      background: var(--white);
-      border-top: 1px solid var(--gray-bd);
-      padding: 10px 12px;
-      padding-bottom: calc(10px + var(--safe-bottom));
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-      flex-shrink: 0;
-    }
-    textarea {
-      flex: 1;
-      padding: 9px 13px;
-      font-size: 15px;
-      font-family: inherit;
-      border: 1px solid var(--gray-bd);
-      border-radius: 22px;
-      background: var(--gray-bg);
-      color: var(--dark);
-      resize: none;
-      outline: none;
-      line-height: 1.45;
-      min-height: 40px;
-      max-height: 110px;
-      overflow-y: auto;
-      -webkit-appearance: none;
-    }
-    textarea:focus {
-      border-color: var(--teal);
-      background: var(--white);
-    }
-    .send-btn {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      background: var(--teal);
-      border: none;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      transition: background 0.15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .send-btn:active { background: var(--teal-dk); }
-    .send-btn:disabled { background: var(--gray-bd); }
-    .send-btn svg { width: 18px; height: 18px; fill: white; }
-
-    /* ── IP 안내 배너 ── */
-    .ip-banner {
-      background: #E6F1FB;
-      border-bottom: 1px solid #B5D4F4;
-      padding: 8px 14px;
-      font-size: 12px;
-      color: #0C447C;
-      flex-shrink: 0;
-      text-align: center;
-    }
-
-    /* ── 스크롤바 ── */
-    .chat::-webkit-scrollbar { width: 4px; }
-    .chat::-webkit-scrollbar-thumb { background: var(--gray-bd); border-radius: 4px; }
+    .toast.show{opacity:1}
   </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- 헤더 -->
+  <!-- 잠금 오버레이 -->
+  <div class="overlay" id="lockOverlay">
+    <div class="modal">
+      <div class="modal-icon">🔐</div>
+      <div class="modal-title">English Tutor</div>
+      <div class="modal-desc" id="lockDesc">지문 인식으로 잠금을 해제하세요</div>
+      <button class="bio-btn" id="bioBtn" onclick="doBiometric()">👆</button>
+      <div class="err" id="lockErr"></div>
+      <button class="btn-secondary" onclick="showSetup()">⚙️ API 키 재설정</button>
+    </div>
+  </div>
+
+  <!-- API 키 설정 오버레이 -->
+  <div class="overlay hidden" id="setupOverlay">
+    <div class="modal">
+      <div class="modal-icon">🔑</div>
+      <div class="modal-title">API 키 설정</div>
+      <div class="modal-desc">Anthropic API 키를 입력하세요.<br>키는 이 기기에만 저장되며<br>서버로 전송되지 않습니다.</div>
+      <div>
+        <div class="field-label">API 키</div>
+        <input class="field-input" type="text" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" inputmode="url" spellcheck="false" />
+      </div>
+      <div class="err" id="setupErr"></div>
+      <div id="keyPreview" style="font-size:11px;color:#888780;text-align:center;min-height:16px"></div>
+      <div class="ok" id="setupOk">저장 완료! 지문 인식으로 잠금을 해제하세요.</div>
+      <button class="btn-primary" onclick="saveKey()">저장하고 지문 등록</button>
+      <button class="btn-secondary" id="cancelBtn" onclick="cancelSetup()">취소</button>
+    </div>
+  </div>
+
+  <!-- PDF 미리보기 오버레이 -->
+  <div class="overlay hidden" id="pdfOverlay">
+    <div class="modal">
+      <div class="modal-icon">📄</div>
+      <div class="modal-title">대화 내용 PDF 저장</div>
+      <div class="modal-desc" id="pdfDesc">총 0개의 대화를 PDF로 저장합니다.</div>
+      <div>
+        <div class="field-label">파일명</div>
+        <input class="field-input" type="text" id="pdfFilename" value="영어회화학습" />
+      </div>
+      <button class="btn-primary" onclick="generatePDF()">📥 PDF 저장</button>
+      <button class="btn-secondary" onclick="document.getElementById('pdfOverlay').classList.add('hidden')">취소</button>
+    </div>
+  </div>
+
+  <!-- PDF 토스트 -->
+  <div class="toast" id="toast"></div>
+
+  <!-- 앱 본체 -->
   <div class="header">
     <div class="header-icon">🎓</div>
     <div class="header-text">
       <h1>English Tutor</h1>
       <p>AI 영어 회화 튜터 · Powered by Claude</p>
     </div>
-    <button class="clear-btn" onclick="clearChat()">초기화</button>
-  </div>
-
-  <!-- IP 안내 (PC에서만 표시) -->
-  <div class="ip-banner" id="ipBanner" style="display:none">
-    📱 스마트폰에서 접속하려면: <strong id="ipAddr">http://[IP]:5000</strong> 으로 접속하세요
-  </div>
-
-  <!-- 설정 바 -->
-  <div class="settings">
-    <div class="settings-row">
-      <span class="set-label">난이도</span>
-      <button class="chip active-teal" data-group="level" data-val="beginner"     onclick="setChip(this)">🌱 초급</button>
-      <button class="chip"             data-group="level" data-val="intermediate" onclick="setChip(this)">🌿 중급</button>
-      <button class="chip"             data-group="level" data-val="advanced"     onclick="setChip(this)">🌳 고급</button>
-      <div class="set-divider"></div>
-      <span class="set-label">주제</span>
-      <button class="chip active-blue" data-group="topic" data-val="free"     onclick="setChip(this)">💬 자유</button>
-      <button class="chip"             data-group="topic" data-val="travel"   onclick="setChip(this)">✈️ 여행</button>
-      <button class="chip"             data-group="topic" data-val="food"     onclick="setChip(this)">🍜 음식</button>
-      <button class="chip"             data-group="topic" data-val="work"     onclick="setChip(this)">💼 직장</button>
-      <button class="chip"             data-group="topic" data-val="hobby"    onclick="setChip(this)">🎨 취미</button>
-      <button class="chip"             data-group="topic" data-val="shopping" onclick="setChip(this)">🛍️ 쇼핑</button>
+    <div class="header-actions">
+      <button class="icon-btn pdf" onclick="showPdfDialog()">📄 PDF</button>
+      <button class="icon-btn" onclick="clearChat()">초기화</button>
+      <button class="icon-btn" onclick="lockApp()">🔒</button>
+      <button class="icon-btn" onclick="showSetup()">⚙️</button>
     </div>
   </div>
 
-  <!-- 채팅 -->
+  <div class="settings">
+    <div class="settings-row">
+      <span class="set-label">난이도</span>
+      <button class="chip teal" data-group="level" data-val="beginner"     onclick="setChip(this)">🌱 초급</button>
+      <button class="chip"      data-group="level" data-val="intermediate" onclick="setChip(this)">🌿 중급</button>
+      <button class="chip"      data-group="level" data-val="advanced"     onclick="setChip(this)">🌳 고급</button>
+      <div class="set-div"></div>
+      <span class="set-label">주제</span>
+      <button class="chip blue" data-group="topic" data-val="free"     onclick="setChip(this)">💬 자유</button>
+      <button class="chip"      data-group="topic" data-val="travel"   onclick="setChip(this)">✈️ 여행</button>
+      <button class="chip"      data-group="topic" data-val="food"     onclick="setChip(this)">🍜 음식</button>
+      <button class="chip"      data-group="topic" data-val="work"     onclick="setChip(this)">💼 직장</button>
+      <button class="chip"      data-group="topic" data-val="hobby"    onclick="setChip(this)">🎨 취미</button>
+      <button class="chip"      data-group="topic" data-val="shopping" onclick="setChip(this)">🛍️ 쇼핑</button>
+    </div>
+  </div>
+
   <div class="chat" id="chat"></div>
 
-  <!-- 입력 -->
   <div class="input-area">
     <textarea id="inputBox" rows="1" placeholder="영어로 자유롭게 입력하세요..."></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendMsg()">
@@ -324,145 +195,373 @@
 </div>
 
 <script>
-  let history = []
-  let level = 'beginner'
-  let topic = 'free'
-  let loading = false
+// ── 상태 ─────────────────────────────────────────────────────
+let history=[], level='beginner', topic='free', loading=false, unlockedKey=''
+// PDF용 대화 기록 (역할 + 텍스트 + 피드백)
+let chatLog = []
+const SK='et_api_key_enc'
 
-  // ── 설정 칩 ──────────────────────────────────────────────
-  function setChip(el) {
-    const group = el.dataset.group
-    const activeClass = group === 'level' ? 'active-teal' : 'active-blue'
-    document.querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove(activeClass))
-    el.classList.add(activeClass)
-    if (group === 'level') level = el.dataset.val
-    else topic = el.dataset.val
+// ── 암호화 ───────────────────────────────────────────────────
+async function getSecret(){
+  let s=localStorage.getItem('et_secret')
+  if(!s){const a=crypto.getRandomValues(new Uint8Array(32));s=Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('');localStorage.setItem('et_secret',s)}
+  return s
+}
+async function deriveKey(s){
+  const e=new TextEncoder(),r=await crypto.subtle.importKey('raw',e.encode(s),'PBKDF2',false,['deriveKey'])
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:e.encode('et-salt-v1'),iterations:100000,hash:'SHA-256'},r,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])
+}
+async function encryptKey(k){
+  const s=await getSecret(),ck=await deriveKey(s),e=new TextEncoder(),iv=crypto.getRandomValues(new Uint8Array(12))
+  const c=await crypto.subtle.encrypt({name:'AES-GCM',iv},ck,e.encode(k))
+  return btoa(String.fromCharCode(...new Uint8Array([...iv,...new Uint8Array(c)])))
+}
+async function decryptKey(d){
+  const s=await getSecret(),ck=await deriveKey(s),b=Uint8Array.from(atob(d),c=>c.charCodeAt(0))
+  const p=await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},ck,b.slice(12))
+  return new TextDecoder().decode(p)
+}
+
+// ── 생체 인증 ─────────────────────────────────────────────────
+function hasCredential(){return!!localStorage.getItem('et_cred_id')}
+async function registerBiometric(){
+  const ch=crypto.getRandomValues(new Uint8Array(32))
+  const host=location.hostname==='localhost'?'localhost':location.hostname
+  const c=await navigator.credentials.create({publicKey:{
+    challenge:ch,rp:{name:'English Tutor',id:host},
+    user:{id:new Uint8Array(16),name:'user',displayName:'사용자'},
+    pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+    authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},
+    timeout:60000
+  }})
+  localStorage.setItem('et_cred_id',btoa(String.fromCharCode(...new Uint8Array(c.rawId))))
+}
+async function verifyBiometric(){
+  const id=localStorage.getItem('et_cred_id')
+  if(!id)throw new Error('no cred')
+  const cid=Uint8Array.from(atob(id),c=>c.charCodeAt(0))
+  const host=location.hostname==='localhost'?'localhost':location.hostname
+  await navigator.credentials.get({publicKey:{
+    challenge:crypto.getRandomValues(new Uint8Array(32)),
+    rpId:host,allowCredentials:[{type:'public-key',id:cid}],
+    userVerification:'required',timeout:60000
+  }})
+}
+
+// ── 잠금 / 해제 ──────────────────────────────────────────────
+function lockApp(){
+  unlockedKey=''
+  document.getElementById('lockOverlay').classList.remove('hidden')
+  document.getElementById('lockDesc').textContent=hasCredential()?'지문 인식으로 잠금을 해제하세요':'API 키를 먼저 설정해주세요'
+  document.getElementById('lockErr').classList.remove('show')
+}
+async function doBiometric(){
+  const stored=localStorage.getItem(SK)
+  if(!stored){showSetup();return}
+  const btn=document.getElementById('bioBtn'),err=document.getElementById('lockErr')
+  btn.textContent='⏳';err.classList.remove('show')
+  try{
+    await verifyBiometric()
+    unlockedKey=await decryptKey(stored)
+    document.getElementById('lockOverlay').classList.add('hidden')
+    btn.textContent='👆'
+    if(!document.getElementById('chat').children.length)
+      addMsg('bot',"Hello! I'm your English conversation tutor. 😊 What would you like to talk about today? Feel free to write in English — I'll gently correct any mistakes!",'')
+  }catch(e){
+    btn.textContent='👆'
+    err.textContent='인증 실패 또는 취소되었습니다. 다시 시도해주세요.'
+    err.classList.add('show')
   }
+}
 
-  // ── 메시지 추가 ───────────────────────────────────────────
-  function addMsg(role, text, feedback) {
-    const chat = document.getElementById('chat')
-    const div = document.createElement('div')
-    div.className = `msg ${role}`
+// ── API 키 설정 ───────────────────────────────────────────────
+function showSetup(){
+  document.getElementById('setupOverlay').classList.remove('hidden')
+  document.getElementById('setupErr').classList.remove('show')
+  document.getElementById('setupOk').classList.remove('show')
+  document.getElementById('apiKeyInput').value=''
+  document.getElementById('cancelBtn').style.display=localStorage.getItem(SK)?'block':'none'
+}
+function cancelSetup(){document.getElementById('setupOverlay').classList.add('hidden')}
+async function saveKey(){
+  const raw=document.getElementById('apiKeyInput').value
+  const k=cleanAndPreview(raw)
+  const err=document.getElementById('setupErr'),ok=document.getElementById('setupOk')
+  err.classList.remove('show');ok.classList.remove('show')
+  if(!k||k.length<10){err.textContent='API 키가 너무 짧습니다. (현재 '+k.length+'자)';err.classList.add('show');return}
+  if(!window.PublicKeyCredential){err.textContent='이 브라우저는 생체 인증을 지원하지 않습니다.';err.classList.add('show');return}
+  try{
+    await registerBiometric()
+    localStorage.setItem(SK,await encryptKey(k))
+    ok.textContent='저장 완료! 키: '+k.substring(0,10)+'...'
+    ok.classList.add('show')
+    setTimeout(()=>{document.getElementById('setupOverlay').classList.add('hidden');lockApp()},2000)
+  }catch(e){
+    err.textContent=e.name==='NotAllowedError'?'생체 인증이 취소되었습니다.':e.name==='NotSupportedError'?'이 기기는 생체 인증을 지원하지 않습니다.':`오류: ${e.message}`
+    err.classList.add('show')
+  }
+}
 
-    const sender = document.createElement('div')
-    sender.className = 'sender'
-    sender.textContent = role === 'user' ? '나' : 'Tutor'
+// ── 설정 칩 ──────────────────────────────────────────────────
+function setChip(el){
+  const g=el.dataset.group,c=g==='level'?'teal':'blue'
+  document.querySelectorAll(`[data-group="${g}"]`).forEach(b=>b.classList.remove(c))
+  el.classList.add(c)
+  if(g==='level')level=el.dataset.val;else topic=el.dataset.val
+}
 
-    const bubble = document.createElement('div')
-    bubble.className = 'bubble'
-    bubble.textContent = text
+// ── 채팅 ─────────────────────────────────────────────────────
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
-    div.appendChild(sender)
-    div.appendChild(bubble)
+function addMsg(role, text, feedback){
+  // chatLog에 기록 (PDF용)
+  chatLog.push({role, text, feedback: feedback||''})
 
-    if (feedback) {
-      const fb = document.createElement('div')
-      fb.className = 'feedback'
-      fb.innerHTML = `<div class="feedback-label">💡 피드백</div>${escHtml(feedback)}`
-      div.appendChild(fb)
+  const chat=document.getElementById('chat'),div=document.createElement('div')
+  div.className=`msg ${role}`
+  const snd=document.createElement('div');snd.className='sender';snd.textContent=role==='user'?'나':'Tutor'
+  const bub=document.createElement('div');bub.className='bubble';bub.textContent=text
+  div.appendChild(snd);div.appendChild(bub)
+  if(feedback){
+    const fb=document.createElement('div');fb.className='feedback'
+    fb.innerHTML=`<div class="fb-label">💡 피드백</div>${esc(feedback)}`
+    div.appendChild(fb)
+  }
+  chat.appendChild(div);chat.scrollTop=chat.scrollHeight
+}
+
+function showTyping(){
+  const chat=document.getElementById('chat'),div=document.createElement('div')
+  div.className='msg bot';div.id='typing'
+  div.innerHTML='<div class="sender">Tutor</div><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'
+  chat.appendChild(div);chat.scrollTop=chat.scrollHeight
+}
+function removeTyping(){const e=document.getElementById('typing');if(e)e.remove()}
+
+async function sendMsg(){
+  if(loading)return
+  if(!unlockedKey){lockApp();return}
+  const box=document.getElementById('inputBox'),text=box.value.trim()
+  if(!text)return
+  box.value='';box.style.height='auto';loading=true
+  document.getElementById('sendBtn').disabled=true
+  addMsg('user',text,'')
+  history.push({role:'user',content:text});showTyping()
+  try{
+    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:history,level,topic,
+        api_key:unlockedKey.split('').filter(c=>c.charCodeAt(0)>=0x20&&c.charCodeAt(0)<=0x7E).join('').trim()})})
+    const data=await res.json();removeTyping()
+    if(data.error){addMsg('bot',`오류: ${data.error}`,'')}
+    else{
+      history.push({role:'assistant',content:JSON.stringify(data)})
+      addMsg('bot',data.reply||'',data.feedback||'')
     }
+  }catch(e){removeTyping();addMsg('bot','네트워크 오류가 발생했습니다.','')}
+  loading=false;document.getElementById('sendBtn').disabled=false;box.focus()
+}
 
-    chat.appendChild(div)
-    chat.scrollTop = chat.scrollHeight
+function clearChat(){
+  history=[];chatLog=[]
+  document.getElementById('chat').innerHTML=''
+  addMsg('bot',"Hello! Let's start fresh. 😊 What would you like to talk about today?",'')
+}
+
+// ── PDF 저장 ─────────────────────────────────────────────────
+function showPdfDialog(){
+  const msgCount = chatLog.filter(m=>m.role==='user').length
+  if(msgCount === 0){showToast('저장할 대화 내용이 없습니다.');return}
+  document.getElementById('pdfDesc').textContent=`총 ${msgCount}개의 대화를 PDF로 저장합니다.`
+  // 파일명에 날짜 자동 입력
+  const now=new Date()
+  const dateStr=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`
+  document.getElementById('pdfFilename').value=`영어회화학습_${dateStr}`
+  document.getElementById('pdfOverlay').classList.remove('hidden')
+}
+
+function generatePDF(){
+  const {jsPDF} = window.jspdf
+  const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'})
+
+  const filename = (document.getElementById('pdfFilename').value.trim() || '영어회화학습') + '.pdf'
+  const now = new Date()
+  const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+
+  const pageW = 210, pageH = 297
+  const margin = 15
+  const contentW = pageW - margin * 2
+  let y = margin
+
+  // ── 헤더 ──
+  doc.setFillColor(29, 158, 117)
+  doc.rect(0, 0, pageW, 28, 'F')
+  doc.setTextColor(255,255,255)
+  doc.setFontSize(18)
+  doc.setFont('helvetica','bold')
+  doc.text('English Conversation Tutor', margin, 13)
+  doc.setFontSize(9)
+  doc.setFont('helvetica','normal')
+  doc.text('Learning Record  |  ' + dateStr, margin, 21)
+  y = 38
+
+  // 레벨/주제 정보
+  const levelLabel = {'beginner':'Beginner','intermediate':'Intermediate','advanced':'Advanced'}
+  const topicLabel = {'free':'Free','travel':'Travel','food':'Food','work':'Work','hobby':'Hobby','shopping':'Shopping'}
+  doc.setTextColor(100,100,100)
+  doc.setFontSize(9)
+  doc.text(`Level: ${levelLabel[level]||level}   Topic: ${topicLabel[topic]||topic}   Messages: ${chatLog.filter(m=>m.role==='user').length}`, margin, y)
+  y += 8
+
+  // 구분선
+  doc.setDrawColor(200,200,200)
+  doc.line(margin, y, pageW-margin, y)
+  y += 8
+
+  // ── 대화 내용 ──
+  function checkNewPage(neededH){
+    if(y + neededH > pageH - margin){
+      doc.addPage()
+      // 새 페이지 헤더
+      doc.setFillColor(29,158,117)
+      doc.rect(0,0,pageW,12,'F')
+      doc.setTextColor(255,255,255)
+      doc.setFontSize(9)
+      doc.setFont('helvetica','normal')
+      doc.text('English Conversation Tutor  |  Learning Record', margin, 8)
+      y = 20
+    }
   }
 
-  function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  function drawWrappedText(text, x, startY, maxW, fontSize, color, bold){
+    doc.setFontSize(fontSize)
+    doc.setFont('helvetica', bold?'bold':'normal')
+    doc.setTextColor(...color)
+    // 영문 줄바꿈
+    const lines = doc.splitTextToSize(text, maxW)
+    lines.forEach(line=>{
+      checkNewPage(6)
+      doc.text(line, x, y)
+      y += fontSize * 0.45
+    })
+    return y
   }
 
-  function showTyping() {
-    const chat = document.getElementById('chat')
-    const div = document.createElement('div')
-    div.className = 'msg bot'
-    div.id = 'typing'
-    div.innerHTML = `<div class="sender">Tutor</div>
-      <div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`
-    chat.appendChild(div)
-    chat.scrollTop = chat.scrollHeight
-  }
+  chatLog.forEach((msg, idx) => {
+    if(msg.role === 'bot' && idx === 0) return // 첫 인사 포함 원하면 제거
 
-  function removeTyping() {
-    const el = document.getElementById('typing')
-    if (el) el.remove()
-  }
+    checkNewPage(20)
 
-  // ── 전송 ─────────────────────────────────────────────────
-  async function sendMsg() {
-    if (loading) return
-    const box = document.getElementById('inputBox')
-    const text = box.value.trim()
-    if (!text) return
+    if(msg.role === 'user'){
+      // 사용자 메시지 — 오른쪽 정렬 느낌
+      doc.setFillColor(29,158,117)
+      doc.setTextColor(255,255,255)
+      doc.setFontSize(8)
+      doc.setFont('helvetica','bold')
+      doc.text('ME', pageW-margin, y, {align:'right'})
+      y += 5
 
-    box.value = ''
-    box.style.height = 'auto'
-    loading = true
-    document.getElementById('sendBtn').disabled = true
-
-    addMsg('user', text)
-    history.push({ role: 'user', content: text })
-    showTyping()
-
-    try {
-      const res = await fetch('/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, level, topic })
+      // 말풍선 배경
+      const lines = doc.splitTextToSize(msg.text, contentW - 10)
+      const boxH = lines.length * 5 + 6
+      checkNewPage(boxH + 4)
+      doc.setFillColor(29,158,117)
+      doc.roundedRect(margin+20, y-4, contentW-20, boxH, 3, 3, 'F')
+      doc.setTextColor(255,255,255)
+      doc.setFontSize(10)
+      doc.setFont('helvetica','normal')
+      lines.forEach(line=>{
+        doc.text(line, margin+23, y+1)
+        y += 5
       })
-      const data = await res.json()
-      removeTyping()
+      y += 6
 
-      if (data.error) {
-        addMsg('bot', `오류: ${data.error}`, '')
-      } else {
-        history.push({ role: 'assistant', content: JSON.stringify(data) })
-        addMsg('bot', data.reply || '', data.feedback || '')
+    } else if(msg.role === 'bot'){
+      // Tutor 메시지
+      doc.setTextColor(29,158,117)
+      doc.setFontSize(8)
+      doc.setFont('helvetica','bold')
+      doc.text('TUTOR', margin, y)
+      y += 5
+
+      const lines = doc.splitTextToSize(msg.text, contentW - 10)
+      const boxH = lines.length * 5 + 6
+      checkNewPage(boxH + 4)
+      doc.setFillColor(245,245,243)
+      doc.roundedRect(margin, y-4, contentW-20, boxH, 3, 3, 'F')
+      doc.setTextColor(44,44,42)
+      doc.setFontSize(10)
+      doc.setFont('helvetica','normal')
+      lines.forEach(line=>{
+        doc.text(line, margin+3, y+1)
+        y += 5
+      })
+      y += 4
+
+      // 피드백 (있을 때만)
+      if(msg.feedback && msg.feedback.trim()){
+        checkNewPage(14)
+        doc.setFillColor(250,238,218)
+        const fbLines = doc.splitTextToSize('Feedback: ' + msg.feedback, contentW - 14)
+        const fbH = fbLines.length * 4.5 + 6
+        doc.roundedRect(margin, y-3, contentW-20, fbH, 2, 2, 'F')
+        doc.setTextColor(99,56,6)
+        doc.setFontSize(8.5)
+        doc.setFont('helvetica','normal')
+        fbLines.forEach(line=>{
+          doc.text(line, margin+3, y+1)
+          y += 4.5
+        })
+        y += 5
       }
-    } catch (e) {
-      removeTyping()
-      addMsg('bot', '네트워크 오류가 발생했습니다. 서버가 실행 중인지 확인하세요.', '')
-    }
-
-    loading = false
-    document.getElementById('sendBtn').disabled = false
-    box.focus()
-  }
-
-  function clearChat() {
-    history = []
-    document.getElementById('chat').innerHTML = ''
-    addMsg('bot', "Hello! Let's start fresh. 😊 What would you like to talk about today?", '')
-  }
-
-  // ── 입력창 자동 높이 ──────────────────────────────────────
-  document.getElementById('inputBox').addEventListener('input', function() {
-    this.style.height = 'auto'
-    this.style.height = Math.min(this.scrollHeight, 110) + 'px'
-  })
-  document.getElementById('inputBox').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey && !/Android|iPhone/i.test(navigator.userAgent)) {
-      e.preventDefault()
-      sendMsg()
+      y += 2
     }
   })
 
-  // ── PC에서 IP 안내 표시 ───────────────────────────────────
-  if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    fetch('/get_ip').then(r => r.json()).then(d => {
-      if (d.ip) {
-        document.getElementById('ipAddr').textContent = `http://${d.ip}:5000`
-        document.getElementById('ipBanner').style.display = 'block'
-      }
-    }).catch(() => {})
+  // ── 푸터 ──
+  const totalPages = doc.getNumberOfPages()
+  for(let i=1;i<=totalPages;i++){
+    doc.setPage(i)
+    doc.setFillColor(248,248,246)
+    doc.rect(0,pageH-10,pageW,10,'F')
+    doc.setTextColor(150,150,150)
+    doc.setFontSize(8)
+    doc.setFont('helvetica','normal')
+    doc.text(`English Tutor · Powered by Claude  |  Page ${i} / ${totalPages}`, pageW/2, pageH-4, {align:'center'})
   }
 
-  // ── 시작 메시지 ───────────────────────────────────────────
-  addMsg('bot',
-    "Hello! I'm your English conversation tutor. 😊 " +
-    "What would you like to talk about today? " +
-    "Feel free to write in English — I'll gently correct any mistakes!",
-    ''
-  )
+  doc.save(filename)
+  document.getElementById('pdfOverlay').classList.add('hidden')
+  showToast('PDF가 저장되었습니다! 📄')
+}
+
+// ── 토스트 알림 ───────────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast')
+  t.textContent=msg
+  t.classList.add('show')
+  setTimeout(()=>t.classList.remove('show'),2500)
+}
+
+// ── 키 입력 정리 ──────────────────────────────────────────────
+function cleanAndPreview(val){
+  const clean=val.split('').filter(c=>c.charCodeAt(0)>=0x21&&c.charCodeAt(0)<=0x7E).join('')
+  const preview=document.getElementById('keyPreview')
+  if(preview&&clean.length>0) preview.textContent='앞 15자: '+clean.substring(0,15)+' ('+clean.length+'자)'
+  return clean
+}
+document.getElementById('apiKeyInput').addEventListener('paste',function(e){
+  e.preventDefault()
+  const pasted=(e.clipboardData||window.clipboardData).getData('text')
+  this.value=cleanAndPreview(pasted)
+})
+document.getElementById('apiKeyInput').addEventListener('input',function(){cleanAndPreview(this.value)})
+document.getElementById('inputBox').addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'})
+document.getElementById('inputBox').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!/Android|iPhone/i.test(navigator.userAgent)){e.preventDefault();sendMsg()}})
+
+// ── 초기화 ───────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  if(localStorage.getItem(SK))lockApp();else showSetup()
+})
 </script>
 </body>
 </html>
